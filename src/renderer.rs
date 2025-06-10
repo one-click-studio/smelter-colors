@@ -198,8 +198,8 @@ impl Renderer {
                         aspect: wgpu::TextureAspect::All,
                     },
                     wgpu::Extent3d {
-                        width: frame.resolution.width.min(self.config.width as usize) as u32,
-                        height: frame.resolution.height.min(self.config.height as usize) as u32,
+                        width: frame.resolution.width as u32,
+                        height: frame.resolution.height as u32,
                         depth_or_array_layers: 1,
                     },
                 );

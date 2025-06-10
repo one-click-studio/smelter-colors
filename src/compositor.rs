@@ -44,7 +44,7 @@ impl CompositorPipeline {
             queue_options: compositor_pipeline::queue::QueueOptions {
                 default_buffer_duration: Duration::ZERO,
                 ahead_of_time_processing: false,
-                output_framerate: Framerate { num: 30, den: 1 },
+                output_framerate: Framerate { num: 10, den: 1 },
                 run_late_scheduled_events: true,
                 never_drop_output_frames: false,
             },
