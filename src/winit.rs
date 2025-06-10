@@ -52,12 +52,10 @@ impl ApplicationHandler for App {
                 let window = Arc::new(event_loop.create_window(window_attrs)?);
 
                 // Initialize compositor pipeline first (it creates the graphics context)
-                let (compositor, graphics_context) =
-                    CompositorPipeline::new(WIDTH, HEIGHT)?;
+                let (compositor, graphics_context) = CompositorPipeline::new(WIDTH, HEIGHT)?;
 
                 // Initialize renderer with the graphics context from compositor
-                let renderer =
-                    Renderer::new(window.clone(), &graphics_context, WIDTH, HEIGHT)?;
+                let renderer = Renderer::new(window.clone(), &graphics_context, WIDTH, HEIGHT)?;
 
                 // Store components
                 self.window = Some(window.clone());
@@ -86,7 +84,6 @@ impl ApplicationHandler for App {
     ) {
         match event {
             WindowEvent::CloseRequested => {
-                info!("Window close requested");
                 event_loop.exit();
             }
             WindowEvent::Resized(physical_size) => {
