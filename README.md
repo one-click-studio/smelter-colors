@@ -1,6 +1,6 @@
-# Minimal Smelter Example
+# Smelter Colors
 
-This is a minimal standalone example showing how to use Live Compositor (Smelter) Pipeline directly to display content in a window.
+This is a minimal standalone project, loading a Smelter Pipeline and comparing how images and videos are rendered.
 
 ## Usage
 

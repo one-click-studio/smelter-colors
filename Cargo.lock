@@ -2309,22 +2309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
-name = "minimal-smelter"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "compositor_pipeline",
- "compositor_render",
- "crossbeam-channel",
- "pollster 0.4.0",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3981,6 +3965,22 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "smelter-colors"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "compositor_pipeline",
+ "compositor_render",
+ "crossbeam-channel",
+ "pollster 0.4.0",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wgpu",
+ "winit",
+]
 
 [[package]]
 name = "smithay-client-toolkit"

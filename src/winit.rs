@@ -48,7 +48,8 @@ impl ApplicationHandler for App {
         if self.window.is_none() {
             let result: Result<()> = (|| {
                 // Create window
-                let window_attrs = WindowAttributes::default();
+                let window_attrs = WindowAttributes::default()
+                    .with_title("Smelter Colors");
                 let window = Arc::new(event_loop.create_window(window_attrs)?);
 
                 // Initialize compositor pipeline first (it creates the graphics context)
