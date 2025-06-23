@@ -1,6 +1,7 @@
-# Smelter Colors
+# Smelter colors
 
-This is a minimal standalone project, loading a Smelter Pipeline and comparing how images and videos are rendered.
+This loads a minimal Smelter Pipeline and generates a 5 second video to `output.mp4`.
+Its content alternates between the jpg and mp4 every second, making it easier to see a difference in colors between the two.
 
 ## Usage
 
