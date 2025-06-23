@@ -54,6 +54,8 @@ pub static PLACEHOLDER: Component = Component::View(ViewComponent {
 
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
+pub const IMAGE: &str = "RGBBW.jpg";
+pub const MP4: &str = "RGBBW.mp4";
 
 pub struct Compositor {
     pipeline: Arc<Mutex<Pipeline>>,
@@ -63,18 +65,8 @@ pub struct Compositor {
 
 impl Compositor {
     pub fn new() -> Result<Self> {
-        // Initialize graphics context
-        let graphics_context = GraphicsContext::new(GraphicsContextOptions {
-            force_gpu: false,
-            features: wgpu::Features::PUSH_CONSTANTS | wgpu::Features::TEXTURE_BINDING_ARRAY,
-            limits: wgpu::Limits::default(),
-            compatible_surface: None,
-            libvulkan_path: None,
-        })
-        .context("Cannot initialize WGPU")?;
-
         // Create and start pipeline
-        let pipeline = Self::create_pipeline(&graphics_context)?;
+        let pipeline = Self::create_pipeline()?;
 
         // Register inputs
         let (image_input_id, mp4_input_id) = Self::register_inputs(&pipeline)?;
@@ -117,12 +109,12 @@ impl Compositor {
         })
     }
 
-    fn create_pipeline(graphics_context: &GraphicsContext) -> Result<Arc<Mutex<Pipeline>>> {
+    fn create_pipeline() -> Result<Arc<Mutex<Pipeline>>> {
         let (pipeline, _event_loop) = Pipeline::new(compositor_pipeline::pipeline::Options {
             queue_options: compositor_pipeline::queue::QueueOptions {
                 default_buffer_duration: Duration::ZERO,
                 ahead_of_time_processing: false,
-                output_framerate: Framerate { num: 10, den: 1 },
+                output_framerate: Framerate { num: 30, den: 1 },
                 run_late_scheduled_events: true,
                 never_drop_output_frames: false,
             },
@@ -136,7 +128,7 @@ impl Compositor {
             mixing_sample_rate: 48000,
             wgpu_features: wgpu::Features::PUSH_CONSTANTS | wgpu::Features::TEXTURE_BINDING_ARRAY,
             load_system_fonts: None,
-            wgpu_ctx: Some(graphics_context.clone()),
+            wgpu_ctx: None,
             stun_servers: Default::default(),
             whip_whep_server_port: 9000,
             start_whip_whep: false,
@@ -153,8 +145,8 @@ impl Compositor {
 
     fn register_inputs(pipeline: &Arc<Mutex<Pipeline>>) -> Result<(RendererId, InputId)> {
         let assets_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
-        let image_path = assets_path.join("RGBBW.jpg");
-        let mp4_path = assets_path.join("RGBBW.mp4");
+        let image_path = assets_path.join(IMAGE);
+        let mp4_path = assets_path.join(MP4);
 
         // Register image
         let image_input_id = RendererId(Arc::from("image_input"));
@@ -168,13 +160,13 @@ impl Compositor {
                 image_type: compositor_render::image::ImageType::Jpeg,
             }),
         )?;
-        info!("Registered image input");
+        info!("Registered {}", image_path.display());
 
         // Register MP4
         let mp4_input_id = InputId(Arc::from("mp4_input"));
         let video_decoder = VideoDecoder::FFmpegH264;
         let input_options = InputOptions::Mp4(Mp4Options {
-            source: Source::File(mp4_path),
+            source: Source::File(mp4_path.clone()),
             should_loop: true,
             video_decoder,
         });
@@ -187,7 +179,7 @@ impl Compositor {
             },
         };
         Pipeline::register_input(pipeline, mp4_input_id.clone(), options)?;
-        info!("Registered MP4 input");
+        info!("Registered {}", mp4_path.display());
 
         Ok((image_input_id, mp4_input_id))
     }
@@ -232,32 +224,32 @@ impl Compositor {
     fn stop_record(&mut self) -> Result<()> {
         let mut pipeline = self.pipeline.lock().unwrap();
         Pipeline::unregister_output(&mut *pipeline, &self.mp4_output)?;
-
         info!("Stopped recording");
 
         Ok(())
     }
 
-    fn alternate_scenes(&mut self, duration: Duration) {
+    fn alternate_scenes(&mut self, duration: Duration) -> Result<()> {
         for i in 0..duration.as_secs() {
             let component = self.components[(i as usize) % self.components.len()].clone();
 
             let mut pipeline_lock = self.pipeline.lock().unwrap();
-            let _ = Pipeline::update_output(
+            Pipeline::update_output(
                 &mut *pipeline_lock,
                 self.mp4_output.clone(),
                 Some(component.clone()),
                 None,
-            );
+            )?;
             drop(pipeline_lock);
 
             std::thread::sleep(Duration::from_secs(1));
         }
+        Ok(())
     }
 
     pub fn record_for(&mut self, duration: Duration) -> Result<()> {
         self.start_record(PathBuf::from("output.mp4"))?;
-        self.alternate_scenes(duration);
+        self.alternate_scenes(duration)?;
         self.stop_record()?;
         std::thread::sleep(Duration::from_secs(1));
 
