@@ -54,7 +54,7 @@ pub static PLACEHOLDER: Component = Component::View(ViewComponent {
 
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
-pub const IMAGE: &str = "RGBBW.jpg";
+pub const IMAGE: &str = "RGBBW.png";
 pub const MP4: &str = "RGBBW.mp4";
 
 pub struct Compositor {
@@ -157,7 +157,7 @@ impl Compositor {
                 src: ImageSource::LocalPath {
                     path: image_path.to_string_lossy().to_string(),
                 },
-                image_type: compositor_render::image::ImageType::Jpeg,
+                image_type: compositor_render::image::ImageType::Png,
             }),
         )?;
         info!("Registered {}", image_path.display());
