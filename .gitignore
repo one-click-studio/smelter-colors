@@ -4,3 +4,4 @@ target
 **/CLAUDE.md
 output.mp4
 output.mp4.old.*
+output_*.png

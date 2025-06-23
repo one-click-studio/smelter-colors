@@ -1,4 +1,5 @@
 mod compositor;
+mod wgpu;
 
 use anyhow::Result;
 use compositor::Compositor;
@@ -11,6 +12,7 @@ fn main() -> Result<()> {
         .init();
 
     let mut compositor = Compositor::new()?;
+    compositor.save_images()?;
     compositor.record_for(Duration::from_secs(5))?;
 
     Ok(())

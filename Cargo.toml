@@ -15,3 +15,4 @@ wgpu = "24.0.1"
 anyhow = "1.0.71"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+image = "0.25.6"

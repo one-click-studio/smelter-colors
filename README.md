@@ -1,7 +1,11 @@
 # Smelter colors
 
-This loads a minimal Smelter Pipeline and generates a 5 second video to `output.mp4`.
-Its content alternates between the jpg and mp4 every second, making it easier to see a difference in colors between the two.
+This loads a minimal Smelter Pipeline to show the color difference between the image and mp4 from `./assets`.
+
+The output is saved to:
+- `output_png.png`: a single output frame from when the image is rendered
+- `output_mp4.png`: a single output frame from when the mp4 is rendered
+- `output.mp4`: a 5 seconds video swithing between the two every second
 
 ## Usage
 
