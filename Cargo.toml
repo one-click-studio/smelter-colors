@@ -4,20 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Window and graphics
-winit = "0.30.11"
-wgpu = "24.0.1"
-
 # Compositor integration
 compositor_pipeline = { git = "https://github.com/software-mansion/live-compositor.git", rev = "7336400" }
 compositor_render = { git = "https://github.com/software-mansion/live-compositor.git", rev = "7336400" }
+
+# Graphics (required by compositor)
+wgpu = "24.0.1"
 
 # Error handling and utilities
 anyhow = "1.0.71"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-
-# Other utilities
-pollster = "0.4"
-tokio = { version = "1", features = ["rt", "macros", "sync"] }
-crossbeam-channel = "0.5"
