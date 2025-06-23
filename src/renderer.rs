@@ -18,8 +18,8 @@ impl Renderer {
     pub fn new(
         window: Arc<Window>,
         graphics_context: &GraphicsContext,
-        width: u32,
-        height: u32,
+        width: usize,
+        height: usize,
     ) -> Result<Self> {
         // Get device and queue from graphics context
         let device = graphics_context.device.clone();
@@ -40,8 +40,8 @@ impl Renderer {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width,
-            height,
+            width: width as u32,
+            height: height as u32,
             present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
@@ -52,8 +52,8 @@ impl Renderer {
 
         // Create texture for compositor output
         let texture_size = wgpu::Extent3d {
-            width,
-            height,
+            width: width as u32,
+            height: height as u32,
             depth_or_array_layers: 1,
         };
         let texture = device.create_texture(&wgpu::TextureDescriptor {

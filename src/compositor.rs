@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
+use compositor_pipeline::pipeline::RawDataReceiver;
 use compositor_render::scene::{
-    AbsolutePosition, HorizontalAlign, HorizontalPosition, ImageComponent, InputStreamComponent,
-    Position, RGBAColor, RescaleMode, RescalerComponent, VerticalAlign, VerticalPosition,
+    AbsolutePosition, BorderRadius, HorizontalAlign, HorizontalPosition, ImageComponent,
+    InputStreamComponent, Overflow, Padding, Position, RGBAColor, RescaleMode, RescalerComponent,
+    VerticalAlign, VerticalPosition, ViewChildrenDirection, ViewComponent,
 };
+use compositor_render::Resolution;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -23,22 +26,118 @@ use compositor_pipeline::{
 };
 use compositor_render::{
     image::{ImageSource, ImageSpec},
-    scene::{Component, ComponentId},
+    scene::Component,
     Frame, Framerate, InputId, OutputId, RendererId, RendererSpec, RenderingMode,
 };
+
+pub static PLACEHOLDER: Component = Component::View(ViewComponent {
+    id: None,
+    children: vec![],
+    direction: ViewChildrenDirection::Row,
+    position: Position::Static {
+        width: None,
+        height: None,
+    },
+    transition: None,
+    overflow: Overflow::Visible,
+    background_color: RGBAColor(0, 0, 0, 0),
+    border_radius: BorderRadius {
+        top_left: 0.,
+        top_right: 0.,
+        bottom_right: 0.,
+        bottom_left: 0.,
+    },
+    border_width: 0.,
+    border_color: RGBAColor(0, 0, 0, 0),
+    box_shadow: vec![],
+    padding: Padding {
+        top: 0.,
+        right: 0.,
+        bottom: 0.,
+        left: 0.,
+    },
+});
 
 #[allow(dead_code)]
 pub struct CompositorPipeline {
     pipeline: Arc<Mutex<Pipeline>>,
     output_receiver: Option<crossbeam_channel::Receiver<PipelineEvent<Frame>>>,
     graphics_context: GraphicsContext,
-    image_input_id: RendererId,
-    mp4_input_id: InputId,
-    output_id: OutputId,
-    current_source: Arc<Mutex<bool>>, // true = image, false = mp4
+
+    components: Vec<Component>,
+    raw_output: OutputId,
+    mp4_output: OutputId,
+    is_recording: bool,
 }
 
 impl CompositorPipeline {
+    pub fn new(width: usize, height: usize) -> Result<(Self, GraphicsContext)> {
+        // Initialize graphics context
+        let graphics_context = GraphicsContext::new(GraphicsContextOptions {
+            force_gpu: false,
+            features: wgpu::Features::PUSH_CONSTANTS | wgpu::Features::TEXTURE_BINDING_ARRAY,
+            limits: wgpu::Limits::default(),
+            compatible_surface: None,
+            libvulkan_path: None,
+        })
+        .context("Cannot initialize WGPU")?;
+
+        // Create and start pipeline
+        let pipeline = Self::create_pipeline(&graphics_context)?;
+
+        // Register inputs
+        let (image_input_id, mp4_input_id) = Self::register_inputs(&pipeline)?;
+
+        // Components to alternate between
+        let components = [
+            Component::Image(ImageComponent {
+                id: None,
+                image_id: RendererId(image_input_id.0.clone()),
+            }),
+            Component::Rescaler(RescalerComponent {
+                id: None,
+                child: Box::new(Component::InputStream(InputStreamComponent {
+                    id: None,
+                    input_id: mp4_input_id.clone(),
+                })),
+                position: Position::Absolute(AbsolutePosition {
+                    width: Some(width as f32),
+                    height: Some(height as f32),
+                    position_horizontal: HorizontalPosition::LeftOffset(0.0),
+                    position_vertical: VerticalPosition::TopOffset(0.0),
+                    rotation_degrees: 0.0,
+                }),
+                transition: None,
+                mode: RescaleMode::Fill,
+                horizontal_align: HorizontalAlign::Center,
+                vertical_align: VerticalAlign::Center,
+                border_radius: compositor_render::scene::BorderRadius::ZERO,
+                border_width: 0.0,
+                border_color: RGBAColor(0, 0, 0, 0),
+                box_shadow: vec![],
+            }),
+        ]
+        .to_vec();
+
+        // Register raw output
+        let raw_output = OutputId(Arc::from("raw_output"));
+        let mp4_output = OutputId(Arc::from("mp4_output"));
+        let raw_receiver = Self::register_raw_output(&raw_output, &pipeline, width, height)?;
+
+        let compositor = Self {
+            pipeline,
+            output_receiver: raw_receiver.video,
+            graphics_context: graphics_context.clone(),
+
+            components,
+            raw_output,
+            mp4_output,
+            is_recording: false,
+        };
+
+        Ok((compositor, graphics_context))
+    }
+
     fn create_pipeline(graphics_context: &GraphicsContext) -> Result<Arc<Mutex<Pipeline>>> {
         let (pipeline, _event_loop) = Pipeline::new(compositor_pipeline::pipeline::Options {
             queue_options: compositor_pipeline::queue::QueueOptions {
@@ -113,132 +212,144 @@ impl CompositorPipeline {
         Ok((image_input_id, mp4_input_id))
     }
 
-    fn start_scene_alternation_thread(
-        pipeline: Arc<Mutex<Pipeline>>,
-        output_id: OutputId,
-        image_input_id: RendererId,
-        mp4_input_id: InputId,
-        current_source: Arc<Mutex<bool>>,
-        width: u32,
-        height: u32,
-    ) {
-        std::thread::spawn(move || loop {
-            std::thread::sleep(Duration::from_secs(1));
-
-            let mut is_image = current_source.lock().unwrap();
-            *is_image = !*is_image;
-
-            let new_component = if *is_image {
-                Component::Image(ImageComponent {
-                    id: Some(ComponentId(image_input_id.0.clone())),
-                    image_id: RendererId(image_input_id.0.clone()),
-                })
-            } else {
-                Component::Rescaler(RescalerComponent {
-                    id: None,
-                    child: Box::new(Component::InputStream(InputStreamComponent {
-                        id: Some(ComponentId(mp4_input_id.0.clone())),
-                        input_id: mp4_input_id.clone(),
-                    })),
-                    position: Position::Absolute(AbsolutePosition {
-                        width: Some(width as f32),
-                        height: Some(height as f32),
-                        position_horizontal: HorizontalPosition::LeftOffset(0.0),
-                        position_vertical: VerticalPosition::TopOffset(0.0),
-                        rotation_degrees: 0.0,
-                    }),
-                    transition: None,
-                    mode: RescaleMode::Fill,
-                    horizontal_align: HorizontalAlign::Center,
-                    vertical_align: VerticalAlign::Center,
-                    border_radius: compositor_render::scene::BorderRadius::ZERO,
-                    border_width: 0.0,
-                    border_color: RGBAColor(0, 0, 0, 0),
-                    box_shadow: vec![],
-                })
-            };
-
-            let mut pipeline_lock = pipeline.lock().unwrap();
-            Pipeline::update_output(
-                &mut *pipeline_lock,
-                output_id.clone(),
-                Some(new_component),
-                None,
-            )
-            .unwrap();
-        });
-    }
-
-    pub fn new(width: u32, height: u32) -> Result<(Self, GraphicsContext)> {
-        // Initialize graphics context
-        let graphics_context = GraphicsContext::new(GraphicsContextOptions {
-            force_gpu: false,
-            features: wgpu::Features::PUSH_CONSTANTS | wgpu::Features::TEXTURE_BINDING_ARRAY,
-            limits: wgpu::Limits::default(),
-            compatible_surface: None,
-            libvulkan_path: None,
-        })
-        .context("Cannot initialize WGPU")?;
-
-        // Create and start pipeline
-        let pipeline = Self::create_pipeline(&graphics_context)?;
-
-        // Register inputs
-        let (image_input_id, mp4_input_id) = Self::register_inputs(&pipeline)?;
-
-        // Create initial component for output (start with image)
-        let component = Component::Image(ImageComponent {
-            id: Some(ComponentId(image_input_id.0.clone())),
-            image_id: RendererId(image_input_id.0.clone()),
-        });
-
-        // Register raw output
-        let output_id = OutputId(Arc::from("raw_output"));
+    fn register_raw_output(
+        output_id: &OutputId,
+        pipeline: &Arc<Mutex<Pipeline>>,
+        width: usize,
+        height: usize,
+    ) -> Result<RawDataReceiver> {
         let raw_receiver = Pipeline::register_raw_data_output(
             &pipeline,
             output_id.clone(),
             RegisterOutputOptions {
                 output_options: RawDataOutputOptions {
                     video: Some(RawVideoOptions {
-                        resolution: compositor_render::Resolution {
-                            width: width as usize,
-                            height: height as usize,
-                        },
+                        resolution: Resolution { width, height },
                     }),
                     audio: None,
                 },
                 video: Some(OutputVideoOptions {
-                    initial: component,
+                    initial: PLACEHOLDER.clone(),
                     end_condition: PipelineOutputEndCondition::Never,
                 }),
                 audio: None,
             },
         )?;
         info!("Registered raw output");
+        Ok(raw_receiver)
+    }
 
-        // Start scene alternation
-        let current_source = Arc::new(Mutex::new(true)); // Start with image
-        Self::start_scene_alternation_thread(
-            pipeline.clone(),
-            output_id.clone(),
-            image_input_id.clone(),
-            mp4_input_id.clone(),
-            current_source.clone(),
-            width,
-            height,
-        );
+    fn start_record(
+        pipeline: &Arc<Mutex<Pipeline>>,
+        output_id: &OutputId,
+        width: usize,
+        height: usize,
+        path: PathBuf,
+    ) -> Result<()> {
+        use compositor_pipeline::pipeline::encoder::*;
+        use compositor_pipeline::pipeline::output::*;
 
-        let compositor = Self {
+        info!("Starting recording to {}", path.display());
+
+        if path.exists() {
+            std::fs::remove_file(path.clone())?;
+        }
+
+        let _ = compositor_pipeline::Pipeline::register_output(
             pipeline,
-            output_receiver: raw_receiver.video,
-            graphics_context: graphics_context.clone(),
-            image_input_id,
-            mp4_input_id,
-            output_id,
-            current_source,
-        };
+            output_id.clone(),
+            RegisterOutputOptions {
+                output_options: OutputOptions::Mp4(mp4::Mp4OutputOptions {
+                    output_path: path.clone(),
+                    video: Some(VideoEncoderOptions::H264(ffmpeg_h264::Options {
+                        preset: ffmpeg_h264::EncoderPreset::Medium,
+                        resolution: Resolution { width, height },
+                        raw_options: [].to_vec(),
+                    })),
+                    audio: None,
+                }),
+                video: Some(OutputVideoOptions {
+                    initial: PLACEHOLDER.clone(),
+                    end_condition: PipelineOutputEndCondition::Never,
+                }),
+                audio: None,
+            },
+        )?;
 
-        Ok((compositor, graphics_context))
+        Ok(())
+    }
+
+    fn stop_record(pipeline: &Arc<Mutex<Pipeline>>, output_id: &OutputId) -> Result<()> {
+        let mut pipeline = pipeline.lock().unwrap();
+        Pipeline::unregister_output(&mut *pipeline, output_id)?;
+
+        info!("Stopped recording");
+
+        Ok(())
+    }
+
+    pub fn start(&mut self) {
+        Self::alternate_scenes(
+            &self.pipeline.clone(),
+            self.components.clone(),
+            &self.raw_output,
+            None,
+        );
+        self.record(
+            1920,
+            1080,
+            Duration::from_secs(5),
+            PathBuf::from("output.mp4"),
+        );
+    }
+
+    fn alternate_scenes(
+        pipeline: &Arc<Mutex<Pipeline>>,
+        components: Vec<Component>,
+        output_id: &OutputId,
+        duration: Option<Duration>,
+    ) {
+        let components = components.clone();
+        let pipeline = pipeline.clone();
+        let output_id = output_id.clone();
+
+        std::thread::spawn(move || {
+            let mut index = 0;
+            let start = std::time::Instant::now();
+            loop {
+                index = (index + 1) % components.len();
+                let component = components[index].clone();
+
+                let mut pipeline_lock = pipeline.lock().unwrap();
+                let _ = Pipeline::update_output(
+                    &mut *pipeline_lock,
+                    output_id.clone(),
+                    Some(component.clone()),
+                    None,
+                );
+                drop(pipeline_lock);
+
+                if let Some(duration) = duration {
+                    if start.elapsed() >= duration {
+                        break;
+                    }
+                }
+                std::thread::sleep(Duration::from_secs(1));
+            }
+        });
+    }
+
+    pub fn record(&mut self, width: usize, height: usize, duration: Duration, path: PathBuf) {
+        let components = self.components.clone();
+        let pipeline = self.pipeline.clone();
+        let mp4_output = self.mp4_output.clone();
+
+        std::thread::spawn(move || {
+            Self::start_record(&pipeline, &mp4_output, width, height, path).unwrap();
+            Self::alternate_scenes(&pipeline, components, &mp4_output, Some(duration));
+            std::thread::sleep(duration);
+            Self::stop_record(&pipeline, &mp4_output).unwrap();
+        });
     }
 
     pub fn try_get_frame(&self) -> Option<Frame> {

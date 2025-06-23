@@ -12,8 +12,8 @@ use winit::{
 use crate::compositor::CompositorPipeline;
 use crate::renderer::Renderer;
 
-pub const WIDTH: u32 = 1920;
-pub const HEIGHT: u32 = 1080;
+pub const WIDTH: usize = 1920;
+pub const HEIGHT: usize = 1080;
 
 pub struct App {
     window: Option<Arc<Window>>,
@@ -48,12 +48,12 @@ impl ApplicationHandler for App {
         if self.window.is_none() {
             let result: Result<()> = (|| {
                 // Create window
-                let window_attrs = WindowAttributes::default()
-                    .with_title("Smelter Colors");
+                let window_attrs = WindowAttributes::default().with_title("Smelter Colors");
                 let window = Arc::new(event_loop.create_window(window_attrs)?);
 
                 // Initialize compositor pipeline first (it creates the graphics context)
-                let (compositor, graphics_context) = CompositorPipeline::new(WIDTH, HEIGHT)?;
+                let (mut compositor, graphics_context) = CompositorPipeline::new(WIDTH, HEIGHT)?;
+                compositor.start();
 
                 // Initialize renderer with the graphics context from compositor
                 let renderer = Renderer::new(window.clone(), &graphics_context, WIDTH, HEIGHT)?;
