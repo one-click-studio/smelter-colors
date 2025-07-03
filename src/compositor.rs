@@ -58,8 +58,8 @@ pub static PLACEHOLDER: Component = Component::View(ViewComponent {
 
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
-pub const IMAGE: &str = "RGBBW.png";
-pub const MP4: &str = "RGBBW.mp4";
+pub const IMAGE: &str = "test.png";
+pub const MP4: &str = "test.mp4";
 
 pub struct Compositor {
     graphics_context: GraphicsContext,
