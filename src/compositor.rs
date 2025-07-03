@@ -94,6 +94,8 @@ impl Compositor {
         let image_component = Component::Image(ImageComponent {
             id: None,
             image_id: RendererId(image_input_id.0.clone()),
+            width: None,
+            height: None,
         });
         let mp4_component = Component::Rescaler(RescalerComponent {
             id: None,
@@ -226,6 +228,7 @@ impl Compositor {
                             height: HEIGHT,
                         },
                         raw_options: [].to_vec(),
+                        pixel_format: OutputPixelFormat::YUV420P,
                     })),
                     audio: None,
                 }),

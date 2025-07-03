@@ -5,11 +5,11 @@ edition = "2021"
 
 [dependencies]
 # Compositor integration
-compositor_pipeline = { git = "https://github.com/software-mansion/live-compositor.git", rev = "7336400" }
-compositor_render = { git = "https://github.com/software-mansion/live-compositor.git", rev = "7336400" }
+compositor_pipeline = { git = "https://github.com/software-mansion/live-compositor.git", rev = "30e25fd" }
+compositor_render = { git = "https://github.com/software-mansion/live-compositor.git", rev = "30e25fd" }
 
 # Graphics (required by compositor)
-wgpu = "24.0.1"
+wgpu = "25.0.2"
 
 # Error handling and utilities
 anyhow = "1.0.71"

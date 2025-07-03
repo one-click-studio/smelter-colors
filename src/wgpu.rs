@@ -222,7 +222,7 @@ pub fn to_image(context: &GraphicsContext, texture: &Texture) -> Result<RgbaImag
 
     let buffer_slice = buffer.slice(..);
     buffer_slice.map_async(MapMode::Read, |_| ());
-    context.device.poll(Maintain::Wait);
+    context.device.poll(PollType::Wait)?;
 
     let data = buffer_slice.get_mapped_range();
 
